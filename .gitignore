@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Secrets and local config
+.env
+.env.*
+testbed.yaml
+config.yaml
+credentials.*
+secrets.*
+
+# AVI generated evidence and reports
+*.jsonl
+avi_*_report.json
+avi_*_evidence.json
+avi_*_approval.json
+avi_*_change_plan.json
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
