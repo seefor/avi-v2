@@ -1,91 +1,273 @@
-# Episode 07 Walkthrough — Intent: NetBox vs. Live Network State
+# Episode 07 Walkthrough — NetBox vs. Live Network State
 
-## 1. Opening Hook
+This is the production-ready recording guide for AVI v2 Episode 7.
 
-What to say:
+## YouTube Package
 
-"A device can be up and still be wrong. NetBox can say what we intended and still be stale. Today AVI learns one of the most important ideas in network automation: intended state and observed state are different things."
+Recommended title: **NetBox vs. Live Network State: What Should AI Trust? | AVI Ep. 7**
 
-## 2. Trust Question
+Alternates:
+- **Source of Truth vs. Operational State for AI Agents | AVI Ep. 7**
+- **Teach an AI Agent to Detect Network Drift | AVI Ep. 7**
 
-Can AVI compare intent and live operation without treating either source as infallible?
+Thumbnail text: **INTENT vs REALITY**
 
-## 3. Architecture
+Core promise: compare intended state and observed state without treating either source as automatically correct.
+
+Target runtime: **30–40 minutes**.
+
+---
+
+# Recording Run of Show
+
+## 0:00–0:50 — Cold Open
+
+> "A device can be up and still be wrong. NetBox can say what we intended and still be stale. Today AVI learns one of the most important ideas in network automation: intended state and observed state are different things."
+
+Flash one `drift` result and one `unmanaged` result.
+
+## 0:50–2:15 — Trust Question
+
+Slide: **Can AVI Compare Intent and Operation Without Treating Either as Infallible?**
 
 ```text
-NetBox / intent source -----------+
-                                  |
-                                  v
-                           Intent Comparator -> drift finding
-                                  ^
-                                  |
-pyATS / observed state -----------+
+INTENT ------------------+
+                         +-> compare_intent() -> finding
+OBSERVED ----------------+
 ```
 
-## 4. Run the Starter
+> "The comparator should report the relationship between two sources. It should not silently decide which side gets to rewrite the other."
+
+## 2:15–4:00 — Architecture
+
+```text
+NetBox-style intended state
+          ↓
+   compare_intent()
+          ↑
+pyATS-style observed state
+          ↓
+match / drift / unmanaged / unknown
+```
+
+Mention that this starter uses local dictionaries representing those sources so the episode focuses on comparison semantics.
+
+## 4:00–5:30 — Starter Orientation
+
+Open:
+
+```text
+episodes/07-intent/avi_pilot_07_intent.py
+```
+
+Run:
 
 ```bash
 python episodes/07-intent/avi_pilot_07_intent.py
 ```
 
-## 5. Explain Intent vs. Observation
+Focus on:
+- `compare_intent()`
+- `intended` fixture
+- `observed` fixture
+- the two demo calls in `main()`
 
-What to say:
+## 5:30–10:00 — `compare_intent()` Missing-Source Rules
 
-"NetBox tells us what we believe should exist. pyATS tells us what the device is doing right now. Neither automatically wins. AVI needs to preserve both sources and report the comparison."
+Start with:
 
-## 6. Walk Through the Comparison Record
+```python
+if intent is None:
+    return {"status": "unmanaged", "intent": None, "observed": observed}
+```
 
-Show fields for:
-- intent source and record identity,
-- observed source and timestamp,
-- comparison field,
-- expected value,
-- observed value,
-- status,
-- evidence references.
+### What to say
 
-## 7. Demo Case 1 — Match
+> "No intent record does not mean the observed value is wrong. In this starter we call that `unmanaged`."
 
-Show intended and observed state agreeing.
+Then:
 
-## 8. Demo Case 2 — Drift
+```python
+if observed is None:
+    return {"status": "unknown", "intent": intent, "observed": None}
+```
 
-Change one observed value and produce a drift finding.
+> "And if intended state exists but we have no observation, AVI says `unknown`. Missing observation is not drift."
 
-What to say:
+## 10:00–14:00 — Provenance and Comparison
 
-"Drift is a finding for review. It is not permission to configure the device."
+Walk through:
 
-## 9. Demo Case 3 — Missing Intent
+```python
+"intent_source": intent.get("source", "netbox"),
+"intent_record_id": intent.get("record_id"),
+"observed_source": observed.get("source", "pyats"),
+"evidence_id": observed.get("evidence_id"),
+```
 
-Remove the intended-state record.
+Then:
 
-Show `unmanaged`, `unknown`, or equivalent rather than assuming a desired value.
+```python
+"expected": expected,
+"observed": actual,
+"status": "match" if expected == actual else "drift",
+```
 
-## 10. Demo Case 4 — Stale/Ambiguous Intent
+### Key line
 
-Mark the source stale or conflicting and show the comparator preserve that uncertainty.
+> "A drift finding is useful because it preserves both sides: what we expected, what we observed, and where those values came from."
 
-## 11. Break It on Purpose
+## 14:00–17:00 — Demo Case 1: Drift
 
-Make NetBox and observed state disagree on a field with poor source quality. Explain why AVI should not blindly "fix" the network to match NetBox.
+The existing fixture intentionally uses:
 
-## 12. Safety Boundary
+```python
+intended value = True
+observed value = False
+```
 
-The comparator creates a review artifact. It does not create an automatic remediation request.
+Run the starter and show the `drift` result.
 
-## 13. What AVI Still Cannot Do
+### What to say
 
-AVI can identify drift, but it does not yet know the operational runbooks and troubleshooting knowledge engineers use to decide what to inspect next.
+> "This is a review finding. It is not an instruction to enable the interface. We still do not know why the difference exists or which side is stale."
 
-## 14. Homework
+## 17:00–19:00 — Demo Case 2: Unmanaged
+
+The existing second call is:
+
+```python
+compare_intent(None, observed)
+```
+
+Show `status: unmanaged`.
+
+Explain why this is operationally different from drift.
+
+## 19:00–22:00 — Break It on Purpose: Missing Observation
+
+Temporarily add:
+
+```python
+print(json.dumps(compare_intent(intended, None), indent=2))
+```
+
+Run again and show:
+
+```text
+status: unknown
+```
+
+### What to say
+
+> "AVI cannot compare what it hasn't observed. Unknown is more honest than manufacturing a drift conclusion."
+
+Remove or keep the extra demo call deliberately after recording.
+
+## 22:00–25:00 — Add a Match Case
+
+Temporarily create:
+
+```python
+observed_match = {"field": "interface_enabled", "value": True, "source": "pyats", "evidence_id": "evt-202"}
+```
+
+Call:
+
+```python
+compare_intent(intended, observed_match)
+```
+
+Show `status: match`.
+
+Now viewers have seen all four starter outcomes available from the current comparison logic:
+
+- `match`
+- `drift`
+- `unmanaged`
+- `unknown`
+
+## 25:00–27:00 — What This Starter Does Not Yet Model
+
+Be explicit:
+
+- no live NetBox API call yet,
+- no intent freshness/version conflict logic yet,
+- no `stale` status in this starter,
+- no remediation.
+
+> "The architecture will eventually care about stale or ambiguous intent, but I don't want to pretend the Episode 7 starter already solves that."
+
+## 27:00–29:00 — Safety Boundary
+
+Slide:
+
+```text
+DRIFT != DEVICE IS WRONG
+DRIFT != NETBOX IS RIGHT
+DRIFT != PERMISSION TO CHANGE
+```
+
+> "AVI's job here is to make disagreement visible and traceable. Human and later reasoning layers decide what that disagreement means."
+
+## 29:00–31:00 — What AVI Still Cannot Do
+
+AVI can now compare intent and observation. It still cannot:
+
+- retrieve runbooks or standards,
+- cite operational knowledge,
+- distinguish live evidence from retrieved guidance inside a reasoning workflow.
+
+## 31:00–32:30 — Homework
 
 1. Add a second comparison field.
-2. Create a missing-intent case.
-3. Add source version/date metadata.
-4. Make sure every drift result retains both intent and observed provenance.
+2. Add a match case.
+3. Add missing-observation behavior.
+4. Add timestamps/version metadata to intended state.
+5. Preserve intent record ID and observed evidence ID in every finding.
 
-## 15. Next Flight
+## 32:30–33:30 — Next Flight
 
-"Episode 8 adds RAG so AVI can retrieve runbooks and standards while keeping that knowledge separate from live network truth."
+```text
+Observed State + Intended State
+             +
+      Operational Knowledge
+             ↓
+            RAG
+```
+
+> "Episode 8 gives AVI runbooks and operational knowledge through RAG. The challenge is making that guidance useful without confusing a document with live network truth."
+
+---
+
+# Recording Checklist
+
+- [ ] Default drift and unmanaged cases run.
+- [ ] Match and missing-observation demos are rehearsed.
+- [ ] Do not claim the starter has live NetBox integration.
+- [ ] Do not claim stale-intent detection is implemented yet.
+- [ ] Reinforce that drift is a finding, not authorization.
+
+# Suggested Chapters
+
+```text
+00:00 A device can be up and still be wrong
+00:50 The intent trust question
+02:15 Architecture
+04:00 Episode 7 starter
+05:30 Missing intent vs missing observation
+10:00 Preserving provenance
+14:00 Drift demo
+17:00 Unmanaged state
+19:00 Unknown observation demo
+22:00 Match demo
+25:00 What this starter does not model yet
+27:00 Drift is not authorization
+29:00 What AVI still cannot do
+31:00 Homework
+32:30 Episode 8 tease
+```
+
+## Series takeaway
+
+> **Source of truth tells us intent. The network tells us operational state. A trustworthy system keeps those concepts separate.**
