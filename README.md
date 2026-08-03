@@ -20,7 +20,7 @@ AVI is not about giving AI control of the network as quickly as possible.
 
 AVI is about **earning the right to automate the network**.
 
-Each episode must answer four questions:
+Each episode answers four questions:
 
 1. What new capability did AVI gain?
 2. What evidence can an engineer inspect?
@@ -50,21 +50,8 @@ Each episode must answer four questions:
 ## Learning Progression
 
 ```text
-Tool
-  -> Evidence
-  -> State
-  -> Structure
-  -> Scale
-  -> Context
-  -> Intent
-  -> Knowledge
-  -> Harness
-  -> Loop
-  -> Verification
-  -> Reuse
-  -> Approval
-  -> Plan
-  -> Action
+Tool -> Evidence -> State -> Structure -> Scale -> Context -> Intent -> Knowledge
+     -> Harness -> Loop -> Verification -> Reuse -> Approval -> Plan -> Action
 ```
 
 The order matters. AVI does not get more power simply because the model can ask for it. AVI gains capability only after the previous layer is observable, testable, and reviewable.
@@ -77,11 +64,13 @@ avi-v2/
 ├── .gitignore
 ├── requirements.txt
 ├── docs/
+│   ├── QUICKSTART.md
 │   ├── SERIES_ARCHITECTURE.md
 │   └── CONTENT_WORKFLOW.md
 ├── avi_core/
 │   └── README.md
 └── episodes/
+    ├── README.md
     ├── 01-tools/
     ├── 02-evidence/
     ├── 03-state/
@@ -99,12 +88,27 @@ avi-v2/
     └── 15-controlled-action/
 ```
 
-Each episode contains:
+Each episode includes:
 
 - `README.md` — the technical lesson, scope, safety boundary, demo, and build goals
+- a runnable starter (`avi_pilot_*.py` or the Episode 12 MCP server)
+- `requirements.txt` — references the shared root dependencies
 - `docs/episode-NN-walkthrough.md` — camera-ready teaching and demo flow for YouTube
 
-As the implementation grows, reusable code moves into `avi_core/` instead of being copied between episodes.
+Episode 01 also includes a pyATS `testbed.example.yaml`. Episode 08 includes a sample BGP troubleshooting runbook. Episode 15 defaults to an in-memory controlled-action simulator so a fresh clone never writes to a real network.
+
+## Quick Start
+
+```bash
+git clone https://github.com/seefor/avi-v2.git
+cd avi-v2
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+See `docs/QUICKSTART.md` for the command for every episode.
 
 ## Series Rules
 
@@ -114,9 +118,9 @@ As the implementation grows, reusable code moves into `avi_core/` instead of bei
 4. Every tool invocation leaves evidence.
 5. Structured output is validated before downstream use.
 6. Current observed state and intended state remain separate concepts.
-7. Retrieved documents must retain source identity.
+7. Retrieved documents retain source identity.
 8. Agent loops have hard iteration, time, and duplicate-call limits.
-9. Final claims must point back to evidence.
+9. Final claims point back to evidence.
 10. MCP makes tools reusable, not automatically safe.
 11. Risky actions require explicit human approval.
 12. Approval does not replace change planning.
@@ -143,7 +147,7 @@ Engineer a larger operational system
 
 ## Recommended Video Format
 
-Every episode should use the same teaching rhythm:
+Every episode uses the same teaching rhythm:
 
 1. Operational problem
 2. Trust question
@@ -161,8 +165,10 @@ That keeps the series focused on engineering decisions rather than disconnected 
 
 AVI v2 is an educational lab project. Do not point early episode code at production systems. Do not commit credentials, tokens, running configurations, or private operational data.
 
-The controlled-action episode must remain limited to a designated lab or sandbox target with an explicitly reversible change.
+The controlled-action starter is intentionally simulated. Any future live write backend must stay limited to a designated lab or sandbox target with an explicitly reversible change and all Episode 13–15 controls in place.
 
 ## Status
 
-The complete 15-episode series architecture and teaching walkthroughs are being built in this repository. Implementation will grow episode by episode so the code reflects the same trust-first progression as the videos.
+The complete 15-episode foundation is now scaffolded: roadmap, technical READMEs, camera-ready walkthroughs, runnable starter code, shared requirements, sample lab data, MCP starter, RAG sample knowledge, and the controlled-action simulation are all present.
+
+The next development phase is to harden each starter episode-by-episode and progressively move stable shared logic into `avi_core/` so AVI becomes one evolving application rather than 15 disconnected demos.
