@@ -1,0 +1,16 @@
+testbed:
+  name: avi-v2-lab
+
+devices:
+  Cat9k_AO_Sandbox:
+    os: iosxe
+    type: router
+    credentials:
+      default:
+        username: YOUR_USERNAME
+        password: YOUR_PASSWORD
+    connections:
+      cli:
+        protocol: ssh
+        ip: 10.10.20.66
+        port: 22
