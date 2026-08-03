@@ -1,96 +1,232 @@
-# Episode 05 Walkthrough — Scale: From One Device to a Small Fleet
+# Episode 05 Walkthrough — What Changes When AVI Looks at Multiple Devices?
 
-## 1. Opening Hook
+This is the production-ready recording guide for AVI v2 Episode 5.
 
-What to say:
+## YouTube Package
 
-"One-device demos hide the hard part. Real network operations means some devices are healthy, some are degraded, and one of them will time out at exactly the wrong moment. Today AVI learns to observe several targets without hiding partial failure."
+Recommended title: **What Changes When an AI Agent Watches Multiple Network Devices? | AVI Ep. 5**
 
-## 2. Trust Question
+Alternates:
+- **Scale a Network AI Agent Without Hiding Failures | AVI Ep. 5**
+- **From One Router to a Fleet: Bounded AI Observation | AVI Ep. 5**
 
-Can AVI summarize multiple devices without flattening away the evidence that explains each result?
+Thumbnail text: **ONE DEVICE IS EASY**
 
-## 3. Architecture
+Core promise: observe several targets concurrently while preserving per-device status, evidence, and partial failures.
+
+Target runtime: **25–35 minutes**.
+
+---
+
+# Recording Run of Show
+
+## 0:00–0:45 — Cold Open
+
+> "One-device demos hide the hard part. In a real network, one device is healthy, one is degraded, and one times out at exactly the wrong moment. Today AVI has to look at all three without pretending the fleet is either all good or all bad."
+
+Flash the final JSON counts:
+
+```json
+{"healthy": 1, "degraded": 1, "unreachable": 1}
+```
+
+## 0:45–2:00 — Trust Question
+
+Slide: **Can AVI Summarize a Fleet Without Erasing Per-Device Truth?**
 
 ```text
 Inventory
-   -> bounded batch runner
-       -> device A -> evidence/state
-       -> device B -> evidence/state
-       -> device C -> timeout/error
-   -> rollup summary + per-device detail
+   -> bounded runner
+       -> lab-r1
+       -> lab-r2
+       -> lab-r3
+   -> rollup + detail
 ```
 
-## 4. Run the Starter
+## 2:00–3:30 — Safety Boundary
+
+> "Scale does not earn AVI broader permissions. We are changing how many approved targets we observe, not what AVI is allowed to do to them."
+
+Call out bounded concurrency as a control rather than a performance trick.
+
+## 3:30–5:00 — Starter Orientation
+
+Open:
+
+```text
+episodes/05-scale/avi_pilot_05_scale.py
+```
+
+Run:
 
 ```bash
 python episodes/05-scale/avi_pilot_05_scale.py
 ```
 
-## 5. Explain Inventory-Driven Targeting
+Focus on:
+- `DEVICES`
+- `observe()`
+- `run_batch()`
+- `main()`
 
-Show how targets come from an inventory/list rather than being embedded in the model prompt.
+## 5:00–8:00 — Inventory Fixture
 
-What to say:
+Show:
 
-"The model should not be able to invent a hostname and suddenly expand its own scope."
+```python
+DEVICES = {
+    "lab-r1": {"status": "healthy", "evidence_id": "evt-101"},
+    "lab-r2": {"status": "degraded", "evidence_id": "evt-102"},
+    "lab-r3": {"status": "unreachable", "evidence_id": "evt-103"},
+}
+```
 
-## 6. Explain Bounded Concurrency
+Explain that this episode uses simulated device results so the lesson stays focused on fleet coordination.
 
-Discuss why parallel observations are useful, but unlimited concurrency is not.
+> "The important pattern is that target scope comes from an inventory, not from the model inventing hostnames."
 
-Cover:
-- max workers/tasks,
-- per-device timeout,
-- resource protection,
-- predictable blast radius.
+## 8:00–11:00 — `observe()`
 
-## 7. Mixed-Result Demo
+Highlight:
 
-Use the intended three-device shape:
-- one healthy,
-- one degraded,
-- one unreachable.
+```python
+def observe(device: str) -> dict:
+    result = DEVICES[device]
+    if result["status"] == "unreachable":
+        return {"device": device, **result, "error": "connection timeout"}
+    return {"device": device, **result, "error": None}
+```
 
-Show the per-device evidence/state first.
+Key point:
 
-## 8. Fleet Rollup
+> "Unreachable is represented explicitly. We do not convert 'I couldn't observe it' into 'healthy,' and we do not crash the whole fleet summary."
 
-Then show the summary.
+## 11:00–16:00 — `run_batch()` and Bounded Concurrency
 
-What to say:
+Show:
 
-"A rollup should help me see the fleet. It should not erase the individual device facts."
+```python
+with ThreadPoolExecutor(max_workers=max_workers) as pool:
+```
 
-## 9. Partial Failure
+Explain:
+- bounded worker count,
+- futures per device,
+- `as_completed()` means results can finish in any order,
+- sorting restores a predictable output order.
 
-Highlight that one timeout does not make the entire batch a failure and does not get silently treated as a healthy result.
+Then show:
 
-## 10. Break It on Purpose
+```python
+counts = {"healthy": 0, "degraded": 0, "unreachable": 0}
+```
 
-Force one target to fail or exceed its timeout.
+and the final return object containing both counts and full device detail.
 
-Confirm:
-- other targets complete,
-- failed target is explicit,
-- evidence remains per target,
-- the rollup reports incomplete/degraded state honestly.
+### What to say
 
-## 11. Safety Boundary
+> "A rollup should help me see the fleet. It should never replace the individual device facts that explain the rollup."
 
-Scale does not earn broader permissions. Every device still passes through the same target and read-only policies.
+## 16:00–19:00 — Happy-Path Mixed Fleet Demo
 
-## 12. What AVI Still Cannot Do
+Run:
 
-AVI can collect much more information now. The new danger is dumping all of it into the model. Episode 6 introduces deliberate context selection.
+```bash
+python episodes/05-scale/avi_pilot_05_scale.py
+```
 
-## 13. Homework
+Read the output in this order:
 
-1. Add a fourth simulated target.
-2. Change the concurrency limit.
-3. Force one timeout.
-4. Verify the final rollup preserves every per-device result.
+1. requested device count,
+2. fleet counts,
+3. per-device details,
+4. evidence IDs,
+5. explicit error on `lab-r3`.
 
-## 14. Next Flight
+## 19:00–22:00 — Break It on Purpose
 
-"More data is not automatically better context. In Episode 6 we decide what AVI should actually see for one operational question—and what should stay out."
+Temporarily add a fourth device:
+
+```python
+"lab-r4": {"status": "unreachable", "evidence_id": "evt-104"},
+```
+
+Run again.
+
+Show that:
+- other results still appear,
+- unreachable count increases,
+- each target remains visible.
+
+Restore the fixture afterward.
+
+Optional experiment: run with `max_workers=1` inside `main()` to explain the difference between concurrency and correctness.
+
+## 22:00–24:00 — What the Starter Does Not Yet Simulate
+
+Be explicit:
+
+> "This starter labels an unreachable device instead of waiting on a real network timeout. In a hardened implementation, per-device connection timeout handling belongs inside the actual tool execution path."
+
+This keeps the walkthrough aligned with the code.
+
+## 24:00–25:30 — What AVI Still Cannot Do
+
+AVI can now produce more data than before. It still cannot decide:
+
+- which device results matter to the current question,
+- how old observations may be,
+- what context should be excluded,
+- how much information the model should receive.
+
+## 25:30–27:00 — Homework
+
+1. Add a fourth target.
+2. Change `max_workers` and compare output behavior.
+3. Add a new `status` category and update the rollup deliberately.
+4. Preserve evidence IDs for every target.
+5. Do not flatten per-device details into counts only.
+
+## 27:00–28:00 — Next Flight
+
+```text
+Episode 5:
+Many Observations
+      ↓
+Episode 6:
+Context Selection
+```
+
+> "AVI can collect more information now. The next problem is deciding what it should actually see. Episode 6 is context engineering for network operations."
+
+---
+
+# Recording Checklist
+
+- [ ] Mixed fleet output is clean and readable.
+- [ ] Fourth-device failure demo is rehearsed.
+- [ ] Fixture restored after recording.
+- [ ] Clearly state this starter simulates status instead of making live multi-device calls.
+- [ ] Explain bounded concurrency as an operational control.
+
+# Suggested Chapters
+
+```text
+00:00 Why one-device demos are easy
+00:45 The fleet trust question
+02:00 Scale without broader permissions
+03:30 Episode 5 starter
+05:00 Inventory-driven targeting
+08:00 Per-device observation
+11:00 Bounded concurrency
+16:00 Mixed fleet demo
+19:00 Partial failure demo
+22:00 What this starter simulates
+24:00 What AVI still cannot do
+25:30 Homework
+27:00 Episode 6 tease
+```
+
+## Series takeaway
+
+> **Fleet summaries should reduce cognitive load without erasing the evidence underneath them.**
