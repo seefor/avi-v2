@@ -1,109 +1,271 @@
-# Episode 02 Walkthrough — Evidence: The Black Box Recorder
+# Episode 02 Walkthrough — How Do We Prove What AVI Actually Saw?
 
-## 1. Opening Hook
+This is the production-ready recording guide for AVI v2 Episode 2.
 
-What to say:
+## YouTube Package
 
-"AVI touched the network in Episode 1. Now I want to answer a harder question: if AVI tells me a BGP neighbor was idle or an interface was down, can I prove exactly what tool event that statement came from?"
+### Recommended title
 
-## 2. Trust Question
+**How Do We Prove What an AI Agent Actually Saw? | Building AVI Ep. 2**
 
-Can an engineer inspect the exact event behind a later AVI claim?
+Alternate titles:
+- **Build a Black Box Recorder for Your AI Agent | AVI Ep. 2**
+- **AI Agent Logs Are Not Enough — Build Evidence | AVI Ep. 2**
 
-## 3. Architecture
+Thumbnail text:
+
+**PROVE WHAT IT SAW**
+
+Core promise: turn transient tool activity into durable, referenceable evidence records.
+
+Target runtime: **20–30 minutes**.
+
+---
+
+# Recording Run of Show
+
+## 0:00–0:45 — Cold Open
+
+### What to say
+
+> "AVI touched the network safely in Episode 1. But if AVI later tells me an interface was down, I don't want to trust the sentence. I want to inspect the event behind it. Today we're building AVI's black box recorder."
+
+Quickly show one `avi_evidence.jsonl` record.
+
+## 0:45–2:00 — Trust Question
+
+Slide title: **Can I Inspect the Exact Event Behind a Claim?**
+
+Show:
 
 ```text
-Tool Request -> Validation -> Execution -> Result
-                    |             |
-                    +-------------+-> Evidence Recorder -> JSONL
+Tool Call -> Result -> Evidence ID -> Later Claim
 ```
 
 What to say:
 
-"Evidence is not an optional debug log. It becomes part of AVI's control plane."
+> "Evidence is not just debug output. It gives later layers something stable to point back to."
 
-## 4. Run the Starter
+## 2:00–3:30 — Architecture
 
-From the repository root:
+```text
+Tool Request -> Execution -> Result
+                    |
+                    v
+             Evidence Recorder
+                    |
+                    v
+            avi_evidence.jsonl
+```
+
+Explain that Episode 2 records success and failure. Policy-block evidence is the direction of the architecture, while this starter specifically demonstrates successful and exception paths.
+
+## 3:30–5:00 — Repository and Starter
+
+Open:
+
+```text
+episodes/02-evidence/avi_pilot_02_evidence.py
+```
+
+Run from the repository root:
 
 ```bash
 python episodes/02-evidence/avi_pilot_02_evidence.py
 ```
 
-## 5. Build the Evidence Record
+Tell viewers the starter has three important pieces:
 
-Walk through the fields:
-- `run_id`
-- `evidence_id`
-- timestamp
-- tool
-- target
-- arguments
-- status
-- duration
-- summary
-- error
+- `record_event()`
+- `observed_tool()`
+- `main()`
 
-Explain why `run_id` groups one investigation while `evidence_id` identifies one tool event.
+## 5:00–9:00 — `record_event()`
 
-## 6. Happy Path
+Highlight:
 
-Run a successful tool call and show the evidence record written to JSONL.
+```python
+EVIDENCE_FILE = Path("avi_evidence.jsonl")
+```
 
-What to say:
+Then walk through the event fields:
 
-"The terminal output is useful for us right now. The evidence ID is useful to every later layer because it gives us something stable to reference."
+```text
+run_id
+evidence_id
+timestamp
+tool
+target
+arguments
+status
+duration_ms
+summary
+error
+```
 
-## 7. Record a Blocked Request
+### What to say
 
-Trigger a policy rejection.
+> "`evidence_id` identifies this specific tool event. The current starter also generates a `run_id` here. As AVI matures, a real investigation should create one run ID and pass it across multiple evidence events."
 
-Show that the blocked request also leaves evidence.
+Call that out clearly so the video matches the actual code.
 
-Teaching point:
-- Refusals are operationally important events.
-- A black-box recorder should capture failures and policy blocks, not only successes.
+Explain JSON Lines:
 
-## 8. Record a Failure
+> "One event per line is deliberately simple. It's easy to append, inspect, stream, and process later."
 
-Use the starter's failed connection/error path.
+## 9:00–13:00 — `observed_tool()`
 
-Review the error field and duration.
+Walk through:
 
-What to say:
+```python
+started = time.perf_counter()
+```
 
-"We do not want a failed observation silently disappearing. Later AVI must be able to distinguish 'the interface is down' from 'I failed to observe the interface.'"
+Then the success path:
 
-## 9. Talk About Redaction
+```python
+result = tool()
+...
+record_event(... status="success", summary=result)
+```
 
-Explain that evidence should be useful without dumping credentials, tokens, full secrets, or unnecessary sensitive payloads.
+Then the exception path:
 
-## 10. Review the JSONL
+```python
+except Exception as exc:
+    ...
+    record_event(... status="failure", error=str(exc))
+    raise
+```
 
-Open the evidence file and correlate terminal events to records.
+### Key line
 
-Point out:
-- immutable event-per-line format,
-- unique IDs,
-- status differences,
-- compact summary vs raw sensitive data.
+> "A failed observation is not the same thing as observing a failed network state. AVI has to preserve that distinction."
 
-## 11. Break It on Purpose
+## 13:00–16:00 — Happy-Path Demo
 
-Temporarily send an argument containing a fake secret/token-like field and demonstrate or explain the redaction rule.
+Run:
 
-## 12. What AVI Still Cannot Do
+```bash
+python episodes/02-evidence/avi_pilot_02_evidence.py
+```
 
-AVI has evidence, but the evidence is still raw observation. It does not yet have a normalized representation of interfaces, devices, or BGP state.
+Then open the evidence file from the repository root:
 
-## 13. Homework
+```bash
+cat avi_evidence.jsonl
+```
 
-Ask viewers to:
-1. Add a new evidence field such as caller or lab environment.
-2. Run success, blocked, and failure cases.
-3. Correlate all events with a shared `run_id`.
-4. Verify no secret is written to the evidence file.
+PowerShell:
 
-## 14. Next Flight
+```powershell
+Get-Content avi_evidence.jsonl
+```
 
-"In Episode 3 we stop treating CLI output as the final answer. AVI will turn observations into explicit network state objects that humans and later automation can reason over consistently."
+Point out the generated `evidence_id`, status, duration, summary, and timestamp.
+
+## 16:00–19:00 — Break It on Purpose
+
+Temporarily change the lambda in `main()` from:
+
+```python
+lambda: {"reachable": True, "role": "edge"}
+```
+
+to a small function/lambda that raises an exception, for example:
+
+```python
+lambda: (_ for _ in ()).throw(RuntimeError("simulated connection failure"))
+```
+
+Run the starter again.
+
+Show that:
+
+- the script raises the exception,
+- a failure evidence record is still appended,
+- `error` is populated,
+- `duration_ms` is still captured.
+
+Restore the happy-path lambda after the demo.
+
+### What to say
+
+> "This is why the recorder wraps the tool call. Failure still leaves a trail."
+
+## 19:00–21:00 — Evidence Hygiene
+
+Explain that logging everything is not automatically safe.
+
+Show the `arguments` and `summary` fields and say:
+
+> "Before this becomes a production pattern, we need redaction and data-minimization rules. Credentials, tokens, or sensitive payloads should not be blindly copied into evidence."
+
+Do not claim the current starter already performs redaction; identify it as a hardening step.
+
+## 21:00–23:00 — What AVI Still Cannot Do
+
+Slide title: **What AVI Has NOT Earned Yet**
+
+AVI can now create evidence records, but it still cannot:
+
+- turn raw observations into consistent network state,
+- enforce richer schemas across those state objects,
+- correlate multiple devices,
+- verify later claims against evidence.
+
+## 23:00–24:30 — Homework
+
+1. Pass a shared `run_id` into multiple events.
+2. Add a `caller` or `environment` field.
+3. Run success and failure cases.
+4. Add a redaction helper for sensitive argument names.
+5. Confirm every event receives a unique `evidence_id`.
+
+## 24:30–25:30 — Next Flight
+
+Show architecture growth:
+
+```text
+Episode 2:
+Tool -> Evidence Record
+
+Episode 3:
+Tool -> Evidence Record -> Normalizer -> Network State
+```
+
+### What to say
+
+> "Evidence tells us what happened. In Episode 3, AVI learns to turn those observations into explicit network state without losing the evidence behind them."
+
+---
+
+# Recording Checklist
+
+- [ ] Delete or archive old `avi_evidence.jsonl` before recording if you want a clean demo.
+- [ ] Happy path runs successfully.
+- [ ] Failure path has been rehearsed.
+- [ ] No real secrets are included in test arguments.
+- [ ] Terminal font is readable.
+- [ ] Failure demo is restored before committing code.
+
+# Suggested Chapters
+
+```text
+00:00 Why AVI needs evidence
+00:45 The trust question
+02:00 Black box architecture
+03:30 Episode 2 starter
+05:00 Building the evidence record
+09:00 Wrapping tool execution
+13:00 Successful evidence event
+16:00 Recording a failed tool call
+19:00 Evidence hygiene and redaction
+21:00 What AVI still cannot do
+23:00 Homework
+24:30 Episode 3 tease
+```
+
+## Series takeaway
+
+> **If AVI makes a claim later, we should be able to ask: which evidence event supports it?**
